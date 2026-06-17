@@ -27,11 +27,11 @@ Tested against three corporate documents: Apple's Business Conduct Policy, Micro
 
 | # | Query | What it proves |
 |---|-------|----------------|
-| 1 | What conflicts of interest must Apple employees disclose? | Retrieval precision against a single-source compliance document |
-| 2 | What was Microsoft's total revenue in fiscal year 2023? | Numeric extraction from dense financial text |
-| 3 | What should NVIDIA employees do if they observe a potential violation? | Multi-chunk synthesis across a reporting-procedure section |
-| 4 | What is NVIDIA's formal process for appealing a termination decision? | **Guardrail handling: refuses to fabricate a process absent from the source** |
-| 5 | Across all three documents, which provides the most detailed anti-bribery guidance? | Cross-document retrieval and comparative reasoning |
+| 1 | What is Apple's specific policy on employees accepting gifts or hospitality from suppliers? | Retrieval precision against a single-source compliance document |
+| 2 | Compare how NVIDIA and Apple each define and handle employee conflicts of interest. | Cross-document retrieval and comparative reasoning |
+| 3 | According to the Microsoft 10-K, what specific regulatory and legal risks does Microsoft identify as threats to its AI and cloud business? | Multi-chunk synthesis from dense financial and legal text |
+| 4 | What does the NVIDIA Code of Conduct say about employee compensation benchmarking and salary band structures? | **Guardrail handling: refuses to fabricate content absent from the source** |
+| 5 | What were Microsoft's total R&D expenses in fiscal year 2023, and what did management cite as the primary drivers of that increase? | Numeric extraction and causal reasoning from financial disclosures |
 
 ---
 
@@ -184,25 +184,25 @@ Guardrail response for query 4, where the source documents contain no relevant c
 
 ```json
 {
-  "query": "What is NVIDIA's formal process for appealing a termination decision?",
+  "query": "What does the NVIDIA Code of Conduct say about employee compensation benchmarking and salary band structures?",
   "answer": "I don't know.",
   "faithfulness_score": 1.0,
   "relevance_score": 0.0,
   "is_faithful": true,
-  "reasoning": "The retrieved context contains no information about termination appeal procedures. The system correctly declined to speculate."
+  "reasoning": "The retrieved context contains no information about compensation benchmarking or salary band structures. The system correctly declined to speculate."
 }
 ```
 
-Grounded answer for query 3:
+Grounded answer for query 5:
 
 ```json
 {
-  "query": "What should NVIDIA employees do if they observe a potential violation?",
-  "answer": "NVIDIA employees who observe a potential violation should report it through the Ethics Helpline, available 24 hours a day, or by contacting their manager, Human Resources, or the Legal department.",
-  "faithfulness_score": 0.97,
-  "relevance_score": 0.95,
+  "query": "What were Microsoft's total R&D expenses in fiscal year 2023, and what did management cite as the primary drivers of that increase?",
+  "answer": "Microsoft's total research and development expenses in fiscal year 2023 were $27,195 million, an increase of $2,974 million, or 12%, compared to fiscal year 2022. Management cited increased investments in cloud engineering, artificial intelligence, and LinkedIn as the primary drivers of that increase.",
+  "faithfulness_score": 1.0,
+  "relevance_score": 1.0,
   "is_faithful": true,
-  "reasoning": "All claims are directly supported by language in the retrieved Code of Conduct chunks."
+  "reasoning": "All figures and attributed drivers are directly supported by language in the retrieved 10-K chunks."
 }
 ```
 
