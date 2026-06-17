@@ -40,6 +40,9 @@ $RECYCLE.BIN/
 credentials.json
 client_secret.json
 
+# Data files — PDFs can exceed GitHub's 100MB limit and bloat history
+data/
+
 # Logs and Local Databases
 *.log
 logs/
