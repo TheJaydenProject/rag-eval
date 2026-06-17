@@ -46,6 +46,8 @@ logs/
 *.sqlite
 *.db
 rag-build-plan.md
+chroma_store/
+.token_budget.json
 
 # Generic Build and Dependency Directories
 # Must be customized based on your specific stack (e.g., node_modules, venv, bin)
@@ -61,6 +63,8 @@ bin/
 obj/
 coverage/
 .nyc_output/
+__pycache__/
+*.pyc
 
 # Archives
 *.7z
