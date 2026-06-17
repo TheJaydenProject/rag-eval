@@ -15,7 +15,6 @@ https://github.com/user-attachments/assets/627f6e0f-b5cf-4697-93a2-e818d4646c45
 
 ---
 
-<!-- Replace the path below with your actual screenshot once captured. -->
 ![Q4 hallucination trap](docs/screenshots/q4_hallucination_trap.png)
 
 *System returns 'I don't know' when the answer is not grounded in the source documents. Faithfulness score remains 1.00 — the answer makes no unsupported claims.*
@@ -24,7 +23,11 @@ https://github.com/user-attachments/assets/627f6e0f-b5cf-4697-93a2-e818d4646c45
 
 ## Evaluation Queries
 
-Tested against three corporate documents: Apple's Business Conduct Policy, Microsoft's 2023 Annual Report (10-K), and NVIDIA's Code of Conduct.
+Tested against three public corporate documents:
+
+- [Apple Business Conduct Policy](https://s2.q4cdn.com/470004039/files/doc_downloads/Business-Conduct-Policy.pdf)
+- [Microsoft 2023 Annual Report (10-K)](https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm)
+- [NVIDIA Code of Conduct](https://www.nvidia.com/content/dam/en-zz/Solutions/about-us/documents/NVIDIA-Code-of-Conduct-external.pdf)
 
 | # | Query | What it proves |
 |---|-------|----------------|
@@ -206,6 +209,39 @@ Grounded answer for query 5:
   "reasoning": "All figures and attributed drivers are directly supported by language in the retrieved 10-K chunks."
 }
 ```
+
+---
+
+## Tests
+
+Three test modules cover the core pipeline logic. No real API calls are made — the evaluator tests mock the LLM client.
+
+| Module | What it tests |
+|--------|--------------|
+| `conftest.py` | Shared pytest setup — injects dummy API keys so `config.py` can be imported without a real `.env` (used in CI) |
+| `test_parser.py` | Whitespace cleaning, chunk size and overlap math, PDF loading schema, edge cases (empty dir, non-PDF files ignored) |
+| `test_budget.py` | Spend accumulation, file persistence, boundary conditions (exact limit allowed, one token over raises), corrupted file recovery |
+| `test_evaluator.py` | JSON extraction from raw, markdown-fenced, and prose-wrapped LLM output; malformed/missing JSON errors; full `evaluate_answer` flow |
+
+Run the suite:
+
+```bash
+pytest tests/ -v
+```
+
+With coverage:
+
+```bash
+pytest tests/ -v --cov=.
+```
+
+The GitHub Actions workflow (`.github/workflows/test.yml`) runs these on every push using dummy credentials so no live API calls are made in CI.
+
+---
+
+## Development Notes
+
+Engineering decisions, debugging sessions, and lessons learned are documented in [`docs/devlog/`](docs/devlog/). The original build plan is in [`docs/rag-build-plan.md`](docs/rag-build-plan.md). Worth reading if you want context on why certain design choices were made.
 
 ---
 
