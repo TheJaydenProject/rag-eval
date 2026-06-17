@@ -43,7 +43,7 @@ Tested against three public corporate documents:
 
 1. **Ingest**: `load_documents()` reads all PDFs from `data/raw/`, extracts full text via pypdf, and splits into 1,500-character chunks with 100-character overlap.
 2. **Embed**: Each chunk is embedded using Gemini's `gemini-embedding-001` model. A 0.7s rate-limit delay is enforced between requests to stay within the free-tier cap of 100 RPM. Vectors are persisted to ChromaDB on disk.
-3. **Retrieve**: The user query is embedded with `task_type=RETRIEVAL_QUERY` to use a query-optimized representation. ChromaDB performs L2 similarity search and returns the top-4 most relevant chunks.
+3. **Retrieve**: The user query is embedded with `task_type=RETRIEVAL_QUERY` to use a query-optimized representation. `retrieve_balanced()` queries ChromaDB once per indexed source document and returns the top-K nearest chunks from each, then merges and re-sorts the full set by L2 distance ascending. This guarantees every document contributes to the context window regardless of corpus size imbalance — without it, a single large document monopolises all retrieval slots on cross-document queries.
 4. **Generate**: Retrieved chunks are concatenated into a context window. The generation LLM receives a strict prompt: answer using only the provided context; return "I don't know" if the answer is absent. Supports DeepSeek, Gemini, and OpenAI via a single environment variable.
 5. **Evaluate**: A second LLM call acts as judge, scoring the answer for faithfulness (is every claim grounded in the context?) and relevance (does the answer directly address the question?). Scores are returned as structured JSON with a one-sentence explanation.
 6. **Budget**: Token counts from every API call are accumulated against a configurable daily cap (`DAILY_TOKEN_BUDGET`). `BudgetExceededError` is raised before any call that would breach the limit.
@@ -61,7 +61,7 @@ data/raw/*.pdf
       |
   [ChromaDB]     persistent L2 vector store  (chroma_store/)
       |
-  [Retriever]    embed query (RETRIEVAL_QUERY) -> top-4 L2 nearest chunks
+  [Retriever]    embed query (RETRIEVAL_QUERY) -> retrieve_balanced(): top-K per source, merged by L2
       |
   [Generator]    context-grounded prompt -> DeepSeek / Gemini 1.5 Flash / GPT-4o Mini
       |
@@ -170,7 +170,7 @@ All configuration is read from environment variables. See `.env.example` for the
 streamlit run app.py
 ```
 
-Enter a query in the chat input. The sidebar displays faithfulness score, relevance score, and per-stage latency (retrieval, generation, evaluation) for each response.
+Enter a query in the chat input. Each response is followed by a "Pipeline Metrics & Evaluation" expander showing faithfulness score, relevance score, total latency, per-stage breakdown (retrieval / generation / eval), and a pass/fail status for the faithfulness check. The sidebar shows live token usage against the daily budget and lists indexed documents.
 
 **CLI batch evaluation**
 
