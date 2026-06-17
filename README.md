@@ -241,7 +241,7 @@ The GitHub Actions workflow (`.github/workflows/test.yml`) runs these on every p
 
 ## Development Notes
 
-Engineering decisions, debugging sessions, and lessons learned are documented in [`docs/devlog/`](docs/devlog/). The original build plan is in [`docs/rag-build-plan.md`](docs/rag-build-plan.md). Worth reading if you want context on why certain design choices were made.
+Engineering decisions, debugging sessions, and lessons learned are documented in [`docs/devlog/`](docs/devlog/). Worth reading if you want context on why certain design choices were made.
 
 ---
 
