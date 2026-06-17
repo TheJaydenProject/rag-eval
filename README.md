@@ -9,8 +9,9 @@ RAG pipeline that ingests PDF documents, retrieves grounded context, and scores 
 
 ---
 
-<!-- Add a screen recording or GIF of the Streamlit UI here. Replace the line below with: ![Demo](docs/demo.gif) -->
-> **Demo**: Add a screen recording or GIF showing a query through the Streamlit UI.
+
+https://github.com/user-attachments/assets/627f6e0f-b5cf-4697-93a2-e818d4646c45
+
 
 ---
 
