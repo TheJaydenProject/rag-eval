@@ -26,9 +26,8 @@ def build_collection(records: list[dict]) -> chromadb.Collection:
             metadatas=[{"source": record["source"], "chunk_index": record["chunk_index"]}],
         )
 
-        # Free tier rate limit buffer — avoids burst rejections on large corpora.
-        if i % 50 == 0 and i > 0:
-            time.sleep(1)
+        # 100 RPM free tier = 1 req/0.6s; 0.7s keeps us safely under across 800-1000 chunk builds.
+        time.sleep(0.7)
 
         if i % 10 == 0:
             print(f"  Embedded {i}/{len(records)} chunks...")
