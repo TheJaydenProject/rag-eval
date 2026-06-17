@@ -1,5 +1,6 @@
 from google import genai
-from google.genai import types as genai_types
+from google.genai import errors, types
+from google.genai.types import HttpOptions
 from openai import OpenAI
 
 import sys
@@ -15,8 +16,10 @@ _openai_client: OpenAI | None = None
 _deepseek_client: OpenAI | None = None
 
 if config.PROVIDER in ("gemini", "deepseek"):
-    # Gemini handles embeddings for both the pure-gemini and hybrid-deepseek paths.
-    _gemini_client = genai.Client(api_key=config.GEMINI_API_KEY)
+    _gemini_client = genai.Client(
+        api_key=config.GEMINI_API_KEY,
+        http_options=HttpOptions(api_version="v1"),
+    )
 
 if config.PROVIDER == "openai":
     _openai_client = OpenAI(api_key=config.OPENAI_API_KEY)
@@ -28,17 +31,25 @@ if config.PROVIDER == "deepseek":
     )
 
 
-def get_embedding(text: str) -> list[float]:
-    # Gemini handles embeddings for both PROVIDER=gemini and PROVIDER=deepseek.
-    if config.PROVIDER in ("gemini", "deepseek"):
+def _gemini_embed(text: str, task_type: str) -> list[float]:
+    if not text:
+        raise ValueError("Input text for embedding cannot be empty.")
+
+    try:
         result = _gemini_client.models.embed_content(
             model=config.EMBEDDING_MODEL,
             contents=text,
-            config=genai_types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT"),
+            config=types.EmbedContentConfig(task_type=task_type),
         )
-        # Gemini doesn't return token counts for embedding calls — estimate conservatively.
         check_and_record(len(text) // 4)
         return result.embeddings[0].values
+    except errors.ClientError as e:
+        raise RuntimeError(f"Embedding request failed. Verify {config.EMBEDDING_MODEL} is active. Details: {e}")
+
+
+def get_embedding(text: str) -> list[float]:
+    if config.PROVIDER in ("gemini", "deepseek"):
+        return _gemini_embed(text, "RETRIEVAL_DOCUMENT")
 
     result = _openai_client.embeddings.create(
         model=config.EMBEDDING_MODEL,
@@ -49,15 +60,8 @@ def get_embedding(text: str) -> list[float]:
 
 
 def get_query_embedding(text: str) -> list[float]:
-    # Gemini distinguishes document vs query task types for better retrieval accuracy.
     if config.PROVIDER in ("gemini", "deepseek"):
-        result = _gemini_client.models.embed_content(
-            model=config.EMBEDDING_MODEL,
-            contents=text,
-            config=genai_types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
-        )
-        check_and_record(len(text) // 4)
-        return result.embeddings[0].values
+        return _gemini_embed(text, "RETRIEVAL_QUERY")
 
     result = _openai_client.embeddings.create(
         model=config.EMBEDDING_MODEL,
