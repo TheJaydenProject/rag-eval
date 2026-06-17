@@ -2,7 +2,7 @@
 
 RAG pipeline that ingests PDF documents, retrieves grounded context, and scores every generated answer for faithfulness and relevance using an LLM-as-judge.
 
-[![Tests](https://github.com/TheJaydenProject/rag-eval/actions/workflows/test.yml/badge.svg)](https://github.com/YOUR_USERNAME/rag-eval/actions/workflows/test.yml)
+[![Tests](https://github.com/TheJaydenProject/rag-eval/actions/workflows/test.yml/badge.svg)](https://github.com/TheJaydenProject/rag-eval/actions/workflows/test.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Streamlit](https://img.shields.io/badge/streamlit-1.58.0-red)
 ![ChromaDB](https://img.shields.io/badge/chromadb-1.5.9-orange)
@@ -234,5 +234,4 @@ Bug reports and feature requests go in [GitHub Issues](https://github.com/TheJay
 
 ## Contact
 
-Jayden Wong
-[github.com/YOUR_USERNAME](https://github.com/TheJaydenProject)
+[github.com/TheJaydenProject](https://github.com/TheJaydenProject)

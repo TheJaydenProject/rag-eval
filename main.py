@@ -7,7 +7,7 @@ sys.path.insert(0, "src")
 import config
 from parser import load_documents
 from embedder import build_collection, load_collection
-from retriever import retrieve
+from retriever import retrieve_balanced
 from evaluator import generate_answer, evaluate_answer
 
 RAW_DIR = Path("data/raw")
@@ -35,7 +35,7 @@ def get_or_build_collection():
 
 
 def run_query(query: str, collection) -> dict:
-    chunks = retrieve(query, collection, config.TOP_K)
+    chunks = retrieve_balanced(query, collection, config.TOP_K)
     answer = generate_answer(query, chunks)
     scores = evaluate_answer(query, answer, chunks)
 

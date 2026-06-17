@@ -11,7 +11,7 @@ from budget_tracker import BudgetExceededError, get_usage_today
 from embedder import build_collection, load_collection
 from evaluator import evaluate_answer, generate_answer
 from parser import load_documents
-from retriever import retrieve
+from retriever import retrieve_balanced
 
 RAW_DIR = Path("data/raw")
 CHROMA_PATH = Path(config.CHROMA_PATH)
@@ -77,7 +77,7 @@ if query := st.chat_input("Ask a question about your documents..."):
         with st.spinner("Retrieving and generating..."):
             try:
                 t0 = time.time()
-                chunks = retrieve(query, st.session_state.collection, config.TOP_K)
+                chunks = retrieve_balanced(query, st.session_state.collection, config.TOP_K)
                 t1 = time.time()
 
                 answer = generate_answer(query, chunks)
