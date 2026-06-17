@@ -26,8 +26,8 @@ if PROVIDER == "openai" and not OPENAI_API_KEY:
 
 # DeepSeek has no embedding API — embeddings route to Gemini's free tier instead.
 EMBEDDING_MODELS: dict[str, str] = {
-    "deepseek": "models/text-embedding-004",
-    "gemini": "models/text-embedding-004",
+    "deepseek": "gemini-embedding-001",
+    "gemini": "gemini-embedding-001",
     "openai": "text-embedding-3-small",
 }
 GENERATION_MODELS: dict[str, str] = {
@@ -39,8 +39,8 @@ GENERATION_MODELS: dict[str, str] = {
 EMBEDDING_MODEL: str = EMBEDDING_MODELS[PROVIDER]
 GENERATION_MODEL: str = GENERATION_MODELS[PROVIDER]
 
-CHUNK_SIZE: int = 500
-CHUNK_OVERLAP: int = 50
+CHUNK_SIZE: int = 1500
+CHUNK_OVERLAP: int = 100
 TOP_K: int = 4
 CHROMA_PATH: str = "chroma_store"
 COLLECTION_NAME: str = "rag_eval_docs"
