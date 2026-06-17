@@ -51,6 +51,7 @@ logs/
 rag-build-plan.md
 chroma_store/
 .token_budget.json
+repomix-output.xml
 
 # Generic Build and Dependency Directories
 # Must be customized based on your specific stack (e.g., node_modules, venv, bin)
