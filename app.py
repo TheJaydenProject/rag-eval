@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -31,30 +32,42 @@ def get_or_build_collection():
         return build_collection(records)
 
 
+def render_eval_metrics(ev: dict, lat: dict) -> None:
+    with st.expander("Pipeline Metrics & Evaluation"):
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Faithfulness", f"{ev['faithfulness_score']:.2f}")
+        col2.metric("Relevance", f"{ev['relevance_score']:.2f}")
+
+        if lat:
+            col3.metric("Total Latency", f"{lat.get('total', 0):.2f}s")
+
+        st.divider()
+
+        if ev.get('is_faithful'):
+            st.success(f"Passed: {ev['reasoning']}")
+        else:
+            st.error(f"Warning: {ev['reasoning']}")
+
+        if lat:
+            st.caption(f"Retrieval: {lat.get('retrieval', 0):.2f}s | Generation: {lat.get('generation', 0):.2f}s | Eval: {lat.get('eval', 0):.2f}s")
+
+
 st.set_page_config(page_title="rag-eval", page_icon="📄")
 st.title("rag-eval")
 st.caption(f"Provider: `{config.PROVIDER}` | Generation: `{config.GENERATION_MODEL}` | Embedding: `{config.EMBEDDING_MODEL}`")
 
-# Load collection once per session.
 if "collection" not in st.session_state:
     st.session_state.collection = get_or_build_collection()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Render chat history.
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg["role"] == "assistant" and "eval" in msg:
-            ev = msg["eval"]
-            with st.expander("Eval scores"):
-                col1, col2 = st.columns(2)
-                col1.metric("Faithfulness", f"{ev['faithfulness_score']:.2f}")
-                col2.metric("Relevance", f"{ev['relevance_score']:.2f}")
-                st.caption(ev["reasoning"])
+            render_eval_metrics(msg["eval"], msg.get("latency", {}))
 
-# Handle new input.
 if query := st.chat_input("Ask a question about your documents..."):
     st.session_state.messages.append({"role": "user", "content": query})
     with st.chat_message("user"):
@@ -63,27 +76,36 @@ if query := st.chat_input("Ask a question about your documents..."):
     with st.chat_message("assistant"):
         with st.spinner("Retrieving and generating..."):
             try:
+                t0 = time.time()
                 chunks = retrieve(query, st.session_state.collection, config.TOP_K)
+                t1 = time.time()
+
                 answer = generate_answer(query, chunks)
+                t2 = time.time()
+
                 scores = evaluate_answer(query, answer, chunks)
+                t3 = time.time()
             except BudgetExceededError as e:
                 st.error(str(e))
                 st.stop()
 
+        latencies = {
+            "total": t3 - t0,
+            "retrieval": t1 - t0,
+            "generation": t2 - t1,
+            "eval": t3 - t2,
+        }
+
         st.markdown(answer)
-        with st.expander("Eval scores"):
-            col1, col2 = st.columns(2)
-            col1.metric("Faithfulness", f"{scores['faithfulness_score']:.2f}")
-            col2.metric("Relevance", f"{scores['relevance_score']:.2f}")
-            st.caption(scores["reasoning"])
+        render_eval_metrics(scores, latencies)
 
     st.session_state.messages.append({
         "role": "assistant",
         "content": answer,
         "eval": scores,
+        "latency": latencies,
     })
 
-# Sidebar: token usage and source list.
 with st.sidebar:
     st.header("Status")
     used = get_usage_today()
