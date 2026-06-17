@@ -48,6 +48,7 @@ data/
 logs/
 *.sqlite
 *.db
+*.mp4
 rag-build-plan.md
 chroma_store/
 .token_budget.json
