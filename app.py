@@ -18,15 +18,15 @@ CHROMA_PATH = Path(config.CHROMA_PATH)
 
 
 def get_or_build_collection():
-    if CHROMA_PATH.exists() and any(CHROMA_PATH.iterdir()):
-        collection = load_collection()
-        if collection.count() > 0:
-            return collection
-
     records = load_documents(RAW_DIR, config.CHUNK_SIZE, config.CHUNK_OVERLAP)
     if not records:
         st.error("No PDFs found in data/raw/. Add at least one PDF and restart.")
         st.stop()
+
+    if CHROMA_PATH.exists() and any(CHROMA_PATH.iterdir()):
+        collection = load_collection()
+        if collection.count() >= len(records):
+            return collection
 
     with st.spinner(f"Indexing {len(records)} chunks — runs once, then cached..."):
         return build_collection(records)

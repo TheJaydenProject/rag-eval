@@ -16,7 +16,20 @@ def build_collection(records: list[dict]) -> chromadb.Collection:
     client = chromadb.PersistentClient(path=config.CHROMA_PATH)
     collection = client.get_or_create_collection(name=config.COLLECTION_NAME)
 
-    for i, record in enumerate(records):
+    existing_ids = set(collection.get(include=[])["ids"])
+
+    pending = [
+        r for r in records
+        if f"{r['source']}__chunk_{r['chunk_index']}" not in existing_ids
+    ]
+
+    if not pending:
+        print(f"Collection '{config.COLLECTION_NAME}' already complete — {len(records)} chunks.")
+        return collection
+
+    print(f"Resuming: {len(existing_ids)} already embedded, {len(pending)} remaining.")
+
+    for i, record in enumerate(pending):
         vector: list[float] = get_embedding(record["text"])
 
         collection.upsert(
@@ -30,7 +43,7 @@ def build_collection(records: list[dict]) -> chromadb.Collection:
         time.sleep(0.7)
 
         if i % 10 == 0:
-            print(f"  Embedded {i}/{len(records)} chunks...")
+            print(f"  Embedded {len(existing_ids) + i}/{len(records)} chunks...")
 
     print(f"Collection '{config.COLLECTION_NAME}' ready — {len(records)} chunks indexed.")
     return collection
