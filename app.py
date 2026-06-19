@@ -1,3 +1,4 @@
+import re
 import sys
 import time
 from pathlib import Path
@@ -30,6 +31,12 @@ def get_or_build_collection():
 
     with st.spinner(f"Indexing {len(records)} chunks — runs once, then cached..."):
         return build_collection(records)
+
+
+def strip_markdown_images(text: str) -> str:
+    """Drop markdown image syntax so a prompt-injected answer can't trigger an
+    auto-loaded outbound request (e.g. exfiltrating data via an image URL)."""
+    return re.sub(r"!\[[^\]]*\]\([^)]*\)", "[image removed]", text)
 
 
 def render_eval_metrics(ev: dict, lat: dict) -> None:
@@ -69,6 +76,10 @@ for msg in st.session_state.messages:
             render_eval_metrics(msg["eval"], msg.get("latency", {}))
 
 if query := st.chat_input("Ask a question about your documents..."):
+    if len(query) > config.MAX_QUERY_LENGTH:
+        st.error(f"Question is too long ({len(query):,} chars). Limit is {config.MAX_QUERY_LENGTH:,}.")
+        st.stop()
+
     st.session_state.messages.append({"role": "user", "content": query})
     with st.chat_message("user"):
         st.markdown(query)
@@ -80,10 +91,11 @@ if query := st.chat_input("Ask a question about your documents..."):
                 chunks = retrieve_balanced(query, st.session_state.collection, config.TOP_K)
                 t1 = time.time()
 
-                answer = generate_answer(query, chunks)
+                answer = strip_markdown_images(generate_answer(query, chunks))
                 t2 = time.time()
 
                 scores = evaluate_answer(query, answer, chunks)
+                scores["reasoning"] = strip_markdown_images(scores["reasoning"])
                 t3 = time.time()
             except BudgetExceededError as e:
                 st.error(str(e))
