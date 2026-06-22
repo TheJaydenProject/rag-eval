@@ -42,9 +42,9 @@ Tested against three public corporate documents:
 ## How It Works
 
 1. **Ingest**: `load_documents()` reads all PDFs from `data/raw/`, extracts full text via pypdf, and splits into 1,500-character chunks with 100-character overlap.
-2. **Embed**: Each chunk is embedded using Gemini's `gemini-embedding-001` model. A 0.7s rate-limit delay is enforced between requests to stay within the free-tier cap of 100 RPM. Vectors are persisted to ChromaDB on disk.
+2. **Embed**: Each chunk is embedded using `EMBEDDING_PROVIDER`'s model — `text-embedding-3-small` for `openai`, `openai/text-embedding-3-small` via OpenRouter's embeddings endpoint for `openrouter`, or Gemini's `gemini-embedding-001` for `gemini`/`deepseek` (DeepSeek has no embedding API of its own, so it borrows Gemini's free tier). `EMBEDDING_PROVIDER` defaults to whichever backend `PROVIDER` already needs a key for, but can be set independently. A rate-limit delay (`EMBEDDING_RATE_LIMIT_DELAY`, 0.7s by default for Gemini's 100 RPM free tier cap) is enforced between requests. Vectors are persisted to ChromaDB on disk.
 3. **Retrieve**: The user query is embedded with `task_type=RETRIEVAL_QUERY` to use a query-optimized representation. `retrieve_balanced()` queries ChromaDB once per indexed source document and returns the top-K nearest chunks from each, then merges and re-sorts the full set by L2 distance ascending. This guarantees every document contributes to the context window regardless of corpus size imbalance — without it, a single large document monopolises all retrieval slots on cross-document queries.
-4. **Generate**: Retrieved chunks are concatenated into a context window. The generation LLM receives a strict prompt: answer using only the provided context; return "I don't know" if the answer is absent. Supports DeepSeek, Gemini, and OpenAI via a single environment variable.
+4. **Generate**: Retrieved chunks are concatenated into a context window. The generation LLM receives a strict prompt: answer using only the provided context; return "I don't know" if the answer is absent. Supports DeepSeek, Gemini, OpenAI, and OpenRouter via a single environment variable (`PROVIDER`).
 5. **Evaluate**: A second LLM call acts as judge, scoring the answer for faithfulness (is every claim grounded in the context?) and relevance (does the answer directly address the question?). Scores are returned as structured JSON with a one-sentence explanation.
 6. **Budget**: Token counts from every API call are accumulated against a configurable daily cap (`DAILY_TOKEN_BUDGET`). `BudgetExceededError` is raised before any call that would breach the limit.
 
@@ -57,13 +57,13 @@ data/raw/*.pdf
       |
    [Parser]      pypdf extract -> whitespace clean -> 1500-char chunks, 100-char overlap
       |
-  [Embedder]     gemini-embedding-001, 0.7s/request, RETRIEVAL_DOCUMENT task type
+  [Embedder]     text-embedding-3-small (openai, openrouter) / gemini-embedding-001 (gemini, deepseek — 0.7s/request)
       |
   [ChromaDB]     persistent L2 vector store  (chroma_store/)
       |
-  [Retriever]    embed query (RETRIEVAL_QUERY) -> retrieve_balanced(): top-K per source, merged by L2
+  [Retriever]    embed query -> retrieve_balanced(): top-K per source, merged by L2
       |
-  [Generator]    context-grounded prompt -> DeepSeek / Gemini 1.5 Flash / GPT-4o Mini
+  [Generator]    context-grounded prompt -> DeepSeek / Gemini 1.5 Flash / GPT-5.4 Nano / OpenRouter (google/gemini-2.5-flash-lite)
       |
   [Evaluator]    LLM-as-judge -> faithfulness score + relevance score + reasoning
       |
@@ -79,8 +79,8 @@ data/raw/*.pdf
 | Language | Python | 3.12 |
 | Web UI | Streamlit | 1.58.0 |
 | Vector store | ChromaDB | 1.5.9 |
-| Embeddings | google-genai | 2.8.0 |
-| Generation clients | openai (OpenAI + DeepSeek) | 2.42.0 |
+| Embeddings | google-genai (gemini/deepseek path) · openai (openai/openrouter path) | 2.8.0 / 2.42.0 |
+| Generation clients | openai (OpenAI + DeepSeek + OpenRouter) | 2.42.0 |
 | PDF parsing | pypdf | 6.13.2 |
 | Test framework | pytest + pytest-cov | 9.1.0 |
 
@@ -90,8 +90,10 @@ data/raw/*.pdf
 
 - Python 3.12 or later
 - pip
-- API key for at least one generation provider (DeepSeek, Gemini, or OpenAI)
-- Gemini API key for embeddings regardless of generation provider
+- `OPENAI_API_KEY` if `PROVIDER=openai` (covers both embedding and generation)
+- `OPENROUTER_API_KEY` if `PROVIDER=openrouter` (covers both embedding and generation — OpenRouter exposes its own embeddings endpoint)
+- `GEMINI_API_KEY` if `PROVIDER=gemini` or `PROVIDER=deepseek` (DeepSeek has no embedding API, so it borrows Gemini's for embeddings)
+- `DEEPSEEK_API_KEY` additionally if `PROVIDER=deepseek`
 
 ```bash
 python --version   # must be 3.12+
@@ -149,10 +151,15 @@ All configuration is read from environment variables. See `.env.example` for the
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `PROVIDER` | string | `deepseek` | Generation provider. One of `deepseek`, `gemini`, `openai`. |
+| `PROVIDER` | string | `openai` | Generation provider. One of `deepseek`, `gemini`, `openai`, `openrouter`. |
 | `DEEPSEEK_API_KEY` | string | | Required when `PROVIDER=deepseek`. |
-| `GEMINI_API_KEY` | string | | Required for embeddings in all configurations. Also required when `PROVIDER=gemini`. |
-| `OPENAI_API_KEY` | string | | Required when `PROVIDER=openai`. |
+| `GEMINI_API_KEY` | string | | Required when `PROVIDER=gemini` or `PROVIDER=deepseek` (DeepSeek borrows Gemini for embeddings), or when `EMBEDDING_PROVIDER=gemini`. |
+| `OPENAI_API_KEY` | string | | Required when `PROVIDER=openai`, or when `EMBEDDING_PROVIDER=openai`. |
+| `OPENROUTER_API_KEY` | string | | Required when `PROVIDER=openrouter`, or when `EMBEDDING_PROVIDER=openrouter`. |
+| `EMBEDDING_PROVIDER` | string | mirrors `PROVIDER` | Embeddings backend, independent of `PROVIDER`. One of `openai`, `gemini`, `openrouter`. |
+| `OPENROUTER_MODEL` | string | `google/gemini-2.5-flash-lite` | Generation model slug used when `PROVIDER=openrouter`. |
+| `OPENROUTER_EMBEDDING_MODEL` | string | `openai/text-embedding-3-small` | Embedding model slug used when `EMBEDDING_PROVIDER=openrouter`. |
+| `EMBEDDING_RATE_LIMIT_DELAY` | float | `0.7` (gemini) / `0.0` (openai, openrouter) | Seconds to sleep between embedding requests while building the vector store. |
 | `DAILY_TOKEN_BUDGET` | integer | `500000` | Maximum tokens consumed per calendar day across all API calls. |
 | `CHUNK_SIZE` | integer | `1500` | Characters per document chunk. |
 | `CHUNK_OVERLAP` | integer | `100` | Overlap between adjacent chunks in characters. |
@@ -179,6 +186,27 @@ python main.py
 ```
 
 Runs five queries against the loaded documents and writes structured results to `eval_results.json`.
+
+---
+
+## Regenerating the Vector Store
+
+`build_collection()` resumes by chunk ID rather than re-embedding everything on each run, so adding new PDFs to `data/raw/` or changing the generation model/judge prompt needs no manual cleanup — only the new chunks get embedded.
+
+You **do** need to delete `chroma_store/` and rebuild from scratch when:
+- Switching `EMBEDDING_PROVIDER` to one with a different embedding model (`text-embedding-3-small` vs `gemini-embedding-001` are different vector spaces — mixing them silently breaks retrieval).
+- Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` (chunk IDs are positional, so the resume check can't detect that the text under an existing ID changed).
+
+```bash
+# Windows
+Remove-Item -Recurse -Force chroma_store
+
+# macOS / Linux
+rm -rf chroma_store
+
+# then rebuild
+python main.py          # or: streamlit run app.py
+```
 
 ---
 
